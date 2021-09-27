@@ -167,9 +167,9 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
 
 if __name__ == '__main__':
     
-    #image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
+    image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
     #image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
-    image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
+    #image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
     
     logdir = os.path.join('results', 'HW1_1')
     if not os.path.exists(logdir):
