@@ -175,7 +175,7 @@ if __name__ == '__main__':
     if not os.path.exists(logdir):
         os.makedirs(logdir)
 
-    kernel_1 = np.ones((9,13)) / (9*13)
+    kernel_1 = np.ones((5,5)) / 25
     sigmax, sigmay = 5, 5
     
     ret = reflect_padding(image.copy(), kernel_1.shape)
