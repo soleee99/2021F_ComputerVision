@@ -167,15 +167,15 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
 
 if __name__ == '__main__':
     
-    image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
+    #image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
     #image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
-    #image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
+    image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
     
     logdir = os.path.join('results', 'HW1_1')
     if not os.path.exists(logdir):
         os.makedirs(logdir)
 
-    kernel_1 = np.ones((5,5)) / 25
+    kernel_1 = np.ones((7,7)) / 49
     sigmax, sigmay = 5, 5
     
     ret = reflect_padding(image.copy(), kernel_1.shape)
