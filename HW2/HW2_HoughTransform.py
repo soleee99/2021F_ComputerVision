@@ -12,8 +12,8 @@ resultdir='./results'
 
 # TODO:you can calibrate these parameters
 sigma=2
-highThreshold=0.03
-lowThreshold=0.01
+highThreshold=120
+lowThreshold=20
 rhoRes=2
 thetaRes=math.pi/180
 nLines=20
@@ -140,8 +140,52 @@ def non_maximum_suppression(mag_image, dir_image):
 
 
 def double_thresholding(image):
-    img_shape = image.shape
+    # 0 for weak, 1 for maybe, 2for definite edges
     
+    img_shape = image.shape
+    padded_image = replication_pad(image, 1, 1)
+    potential_edge = np.zeros(padded_image.shape)
+
+    for i in range(padded_image.shape[0]):
+        for j in range(padded_image.shape[1]):
+            magnitude = padded_image[i][j]
+            if magnitude >= highThreshold:
+                potential_edge[i][j] = 2
+            elif lowThreshold <= magnitude and magnitude < highThreshold:
+                potential_edge[i][j] = 1
+            else:
+                potential_edge[i][j] = 0
+
+
+    result_image = image
+    for i in range(1, img_shape[0]+1):
+        for j in range(1, img_shape[1]+1):
+            patch = potential_edge[i-1:i+2, j-1:j+2]
+            #print(patch.shape)
+            if patch[1][1] == 1:
+                #print(f"original value: {result_image[i-1][j-1]}")
+                change_to_strong = False
+                for m in range(3):
+                    for n in range(3):
+                        if m == 1 and n == 1:
+                            continue
+                        if patch[m][n] == 2:
+                            #print(f"\thas strong edge near")
+                            # if exits neighboring strong edge, change to strong edge
+                            result_image[i-1][j-1] = highThreshold
+                            potential_edge[i][j] = 2
+                            change_to_strong = True
+                            break
+                    if change_to_strong:
+                        break
+                if not change_to_strong:
+                    result_image[i-1][j-1] = 0
+            elif patch[1][1] == 0:
+                result_image[i-1][j-1] = 0
+
+    return result_image
+
+
 
 
 def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
@@ -194,12 +238,15 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     #Image.fromarray(np.uint8(smoothed_image)).show()  # FIXME:
     # find Ix using sobel filter
     # TODO: maybe change sobel filter size?
+    
     sobel_x_3by3 = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
+    #sobel_x_3by3 = np.array([[-1,-2,0,2,1],[-2,-3,0,3,2],[-3,-5,0,5,3],[-2,-3,0,3,2],[-1,-2,0,2,1]])
     Ix = ConvFilter(smoothed_image, sobel_x_3by3)
 
     # find Iy using sobel filter
     # TODO: maybe change sobel filter size?
     sobel_y_3by3 = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    #sobel_y_3by3 = np.array([[1,2,3,2,1],[2,3,5,3,2],[0,0,0,0,0],[-2,-3,-5,-3,-2],[-1,-2,-3,-2,-1]])
     Iy = ConvFilter(smoothed_image, sobel_y_3by3)
 
     # find Im and Io
@@ -209,10 +256,10 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     # np.arctan2 returns value btw [-pi, pi]
     Io = np.arctan2(Iy, Ix) # TODO: check for when Ix magnitude is 0
 
-    #Image.fromarray(Im).show()
-    
     Im = non_maximum_suppression(Im, Io)
-    #Image.fromarray(Im).show()
+    Image.fromarray(Im).show()
+    Im = double_thresholding(Im)
+    Image.fromarray(Im).show()
     
 
     return Im, Io, Ix, Iy
