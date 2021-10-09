@@ -10,7 +10,7 @@ from PIL import Image
 datadir = './data'
 resultdir='./results'
 
-# you can calibrate these parameters
+# TODO:you can calibrate these parameters
 sigma=2
 highThreshold=0.03
 lowThreshold=0.01
@@ -77,12 +77,81 @@ def ConvFilter(Igs, G):
     return Iconv
 
 
+def suppress_result(patch, orientation):
+    # orientation is radian direction value for element
+    # patch size is 3x3, if <, then suppress
+    # return original center value if not need suppressing, else return 0
+    # interpolating based on 45 degrees
+    values = []
+    
+    def to_radian(degree):
+        # 1 degree = 0.0174533 rad
+        return degree * thetaRes
+
+    if (to_radian(22.5) <= orientation and orientation < to_radian(67.5)) \
+        or (to_radian(-157.5) <= orientation and orientation < to_radian(-112.5)):
+        values.append(patch[0][2])
+        values.append(patch[2][0])
+    elif (to_radian(67.5) <= orientation and orientation < to_radian(112.5)) \
+        or (to_radian(-112.5) <= orientation and orientation < to_radian(-67.5)):
+        values.append(patch[0][1])
+        values.append(patch[2][1])
+    elif (to_radian(112.5) <= orientation and orientation < to_radian(157.5)) \
+        or (to_radian(-67.5) <= orientation and orientation < to_radian(-22.5)):
+        values.append(patch[0][0])
+        values.append(patch[2][2])
+    elif (to_radian(-22.5) <= orientation and orientation < to_radian(22.5)) \
+        or (to_radian(157.5)<= orientation) \
+        or (to_radian(-157.5) > orientation):
+        values.append(patch[1][0])
+        values.append(patch[1][2])
+    
+    assert len(values) == 2, "two comparable candidates not chosen"
+    # now values holds two interpolated magnitudes
+    max_value = max(patch[1][1], max(values))
+    
+    if max_value > patch[1][1]:
+        return 0    # suppressed
+    else:
+        return patch[1][1]
+    
+
+
+def non_maximum_suppression(mag_image, dir_image):
+    """
+    Inputs:
+        mag_image: magnitude image (Im)
+        dir_image: direction image (Io)
+    """
+    mag_shape = mag_image.shape
+    suppressed_image = np.zeros(mag_shape)
+    # padded the image all around to make the code easier
+    padded_image = replication_pad(mag_image, 1, 1)
+    print(padded_image.shape)
+
+    for i in range(1, mag_shape[0]+1):
+        for j in range(1, mag_shape[1]+1):
+            patch = padded_image[i-1:i+2, j-1:j+2]
+            orientation = dir_image[i-1][j-1]
+            suppressed_image[i-1][j-1] = suppress_result(patch, orientation)
+
+    return suppressed_image
+
+
+
+def double_thresholding(image):
+    img_shape = image.shape
+    
+
+
 def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     # TODO ...
+    kernel_size = (5, 5)    # TODO: try changing this
     """
     Inputs:
         Igs: greyscale image
         sigma: stddev to be used for gaussian smoothing before edge detection
+            --> find appropriate filter size yourself.
     Returns:
         Im: edge magnitude image
         Io: edge orientation image
@@ -108,6 +177,43 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
             - TODO: writeup file: explain how things change when thresholds change
 
     """
+
+    # smooth the original image with gaussian kernel
+    kernel_height = kernel_size[0] // 2
+    kernel_width = kernel_size[1] // 2
+
+    gk_y = np.fromfunction(lambda x: (np.pi*2*sigma**2)**(-0.5) * np.exp(-0.5*((x-kernel_height)/sigma)**2), (kernel_size[0],))
+    y_norm = np.sum(gk_y)
+    gk_y = np.expand_dims(gk_y/y_norm, -1)
+    gk_x = np.fromfunction(lambda x: (np.pi*2*sigma**2)**(-0.5) * np.exp(-0.5*((x-kernel_width)/sigma)**2), (kernel_size[1],))
+    x_norm = np.sum(gk_x)
+    gk_x = np.expand_dims(gk_x/x_norm, 0)
+
+    smoothed_image = ConvFilter(Igs, gk_y)
+    smoothed_image = ConvFilter(smoothed_image, gk_x)
+    #Image.fromarray(np.uint8(smoothed_image)).show()  # FIXME:
+    # find Ix using sobel filter
+    # TODO: maybe change sobel filter size?
+    sobel_x_3by3 = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
+    Ix = ConvFilter(smoothed_image, sobel_x_3by3)
+
+    # find Iy using sobel filter
+    # TODO: maybe change sobel filter size?
+    sobel_y_3by3 = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    Iy = ConvFilter(smoothed_image, sobel_y_3by3)
+
+    # find Im and Io
+    Im = np.sqrt(Ix**2 + Iy**2)
+    #Image.fromarray(Im).show()  # FIXME:
+    
+    # np.arctan2 returns value btw [-pi, pi]
+    Io = np.arctan2(Iy, Ix) # TODO: check for when Ix magnitude is 0
+
+    #Image.fromarray(Im).show()
+    
+    Im = non_maximum_suppression(Im, Io)
+    #Image.fromarray(Im).show()
+    
 
     return Im, Io, Ix, Iy
 
@@ -141,14 +247,19 @@ def main():
         img = Image.open(img_path).convert("L")
 
         Igs = np.array(img)
-        Igs = Igs / 255.
-
+        #TODO: why is this needed????" Igs = Igs / 255.
+        #Image.fromarray(np.uint8(Igs)).show()  # FIXME:
         # Hough function
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
+
+        #Image.fromarray(Ix).show()  #FIXME:
+        #Image.fromarray(Iy).show()  # FIXME:
+        
+        """
         H= HoughTransform(Im, rhoRes, thetaRes)
         lRho,lTheta =HoughLines(H,rhoRes,thetaRes,nLines)
         l = HoughLineSegments(lRho, lTheta, Im)
-
+        """
         # saves the outputs to files
         # Im, H, Im + hough line , Im + hough line segments
     
