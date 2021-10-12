@@ -12,7 +12,7 @@ resultdir='./results'
 
 # TODO:you can calibrate these parameters
 sigma=2
-highThreshold=120
+highThreshold=130
 lowThreshold=20
 rhoRes=2
 thetaRes=math.pi/180
@@ -55,14 +55,12 @@ def ConvFilter(Igs, G):
     # TODO ...
     # under assumption that Igs is already padded, just perform convolution
     original_shape = Igs.shape
-    #print(f"original shape: {original_shape}")
     G = np.flip(G)    # flipping kernel according to def of convolution
     size = G.shape
     kernel_height = size[0] // 2
     kernel_width = size[1] // 2
 
     Igs = replication_pad(Igs, kernel_height, kernel_width)
-    #print(f"padded shape: {Igs.shape}")
     image_height = Igs.shape[0] # padded size
     image_width = Igs.shape[1]
     
@@ -73,7 +71,6 @@ def ConvFilter(Igs, G):
             image_patch = Igs[i-kernel_height:i+kernel_height+1, j-kernel_width:j+kernel_width+1]
             convoluted_value = np.sum(np.multiply(image_patch, G))
             Iconv[i-kernel_height][j-kernel_width] = convoluted_value
-    #print(f"returning image shape: {Iconv.shape}")
     return Iconv
 
 
@@ -127,7 +124,6 @@ def non_maximum_suppression(mag_image, dir_image):
     suppressed_image = np.zeros(mag_shape)
     # padded the image all around to make the code easier
     padded_image = replication_pad(mag_image, 1, 1)
-    print(padded_image.shape)
 
     for i in range(1, mag_shape[0]+1):
         for j in range(1, mag_shape[1]+1):
@@ -161,16 +157,13 @@ def double_thresholding(image):
     for i in range(1, img_shape[0]+1):
         for j in range(1, img_shape[1]+1):
             patch = potential_edge[i-1:i+2, j-1:j+2]
-            #print(patch.shape)
             if patch[1][1] == 1:
-                #print(f"original value: {result_image[i-1][j-1]}")
                 change_to_strong = False
                 for m in range(3):
                     for n in range(3):
                         if m == 1 and n == 1:
                             continue
                         if patch[m][n] == 2:
-                            #print(f"\thas strong edge near")
                             # if exits neighboring strong edge, change to strong edge
                             result_image[i-1][j-1] = highThreshold
                             potential_edge[i][j] = 2
@@ -235,23 +228,21 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
 
     smoothed_image = ConvFilter(Igs, gk_y)
     smoothed_image = ConvFilter(smoothed_image, gk_x)
-    #Image.fromarray(np.uint8(smoothed_image)).show()  # FIXME:
     # find Ix using sobel filter
     # TODO: maybe change sobel filter size?
     
-    sobel_x_3by3 = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
+    sobel_x_3by3 = np.array([[-1,0,1],[-3,0,3],[-1,0,1]])
     #sobel_x_3by3 = np.array([[-1,-2,0,2,1],[-2,-3,0,3,2],[-3,-5,0,5,3],[-2,-3,0,3,2],[-1,-2,0,2,1]])
     Ix = ConvFilter(smoothed_image, sobel_x_3by3)
 
     # find Iy using sobel filter
     # TODO: maybe change sobel filter size?
-    sobel_y_3by3 = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    sobel_y_3by3 = np.array([[1,3,1],[0,0,0],[-1,-3,-1]])
     #sobel_y_3by3 = np.array([[1,2,3,2,1],[2,3,5,3,2],[0,0,0,0,0],[-2,-3,-5,-3,-2],[-1,-2,-3,-2,-1]])
     Iy = ConvFilter(smoothed_image, sobel_y_3by3)
 
     # find Im and Io
     Im = np.sqrt(Ix**2 + Iy**2)
-    #Image.fromarray(Im).show()  # FIXME:
     
     # np.arctan2 returns value btw [-pi, pi]
     Io = np.arctan2(Iy, Ix) # TODO: check for when Ix magnitude is 0
