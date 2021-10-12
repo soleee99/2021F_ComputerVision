@@ -257,9 +257,43 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
 
 def HoughTransform(Im, rhoRes, thetaRes):
     # TODO ...
+    """
+    Inputs:
+        Im: magnitude image
+        rhoRes: rho resolution (unit of voting accumulator)
+        thetaRes: theta resolution
+    Returns:
+        H: Hough transform accumulator
+    """
+    thetaMax = np.pi * 2
+    rhoMax = 700 # maby 800
 
+    thetaSplitValue = 50
+    thetaSplitList = np.arange(0, thetaRes, thetaRes/50)
+    #print(thetaSplitList)
+    thetaList = np.arange(0,thetaMax, thetaRes)
+    #print(thetaList)
 
+    H = np.zeros((int(rhoMax / rhoRes), int(thetaMax / thetaRes)))
+
+    for i in range(Im.shape[0]):
+        for j in range(Im.shape[1]):
+            if Im[i][j] >= highThreshold:
+                # if is an edge
+                for t, t_val in enumerate(thetaList):
+                    thetas = t_val + thetaSplitList
+                    rhos = i * np.cos(thetas) + j * np.sin(thetas)
+                    rhoMaxInGrid = np.max(rhos)
+                    rhoMinInGrid = np.min(rhos)
+                    rhoMaxInd = rhoMaxInGrid // rhoRes
+                    rhoMinInd = rhoMinInGrid // rhoRes
+                    
+                    for r in np.arange(rhoMinInd, rhoMaxInd+1):
+                        H[int(r)][int(t)] += 1
+
+    Image.fromarray(H).show()
     return H
+
 
 def HoughLines(H,rhoRes,thetaRes,nLines):
     # TODO ...
@@ -293,8 +327,9 @@ def main():
         #Image.fromarray(Ix).show()  #FIXME:
         #Image.fromarray(Iy).show()  # FIXME:
         
-        """
+        
         H= HoughTransform(Im, rhoRes, thetaRes)
+        """
         lRho,lTheta =HoughLines(H,rhoRes,thetaRes,nLines)
         l = HoughLineSegments(lRho, lTheta, Im)
         """
