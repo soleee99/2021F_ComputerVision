@@ -14,9 +14,9 @@ resultdir='./results'
 sigma=2
 highThreshold=100
 lowThreshold=20
-rhoRes=1
+rhoRes=1.5
 thetaRes=math.pi/180
-nLines=7
+nLines=10
 
 
 def replication_pad(image, kernel_height, kernel_width):
@@ -268,10 +268,10 @@ def HoughTransform(Im, rhoRes, thetaRes):
     
     Image.fromarray(Im).show()
 
-    thetaList = np.arange(0, 2*math.pi, thetaRes)
+    thetaList = np.arange(-0.5* math.pi, 0.5*math.pi, thetaRes)
     #print(thetaList)
     rhoMax = int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
-    thetaMax = 2 * math.pi
+    thetaMax = 0.5*math.pi
 
     """
     H = np.zeros((int(rhoMax / rhoRes) + 1, int(thetaMax / thetaRes) + 1))
@@ -302,13 +302,13 @@ def HoughTransform(Im, rhoRes, thetaRes):
                     #    H[int(r)][int(t)] += 1
     """
 
-    H = np.zeros((int(2*rhoMax/rhoRes) + 1, int(thetaMax / thetaRes) + 1))
+    H = np.zeros((int(2*rhoMax/rhoRes) + 1, int(2* thetaMax / thetaRes) + 1))
     for i in range(Im.shape[0]):
         for j in range(Im.shape[1]):
             if Im[Im.shape[0] - i - 1][j] >= highThreshold:
                 for theta in thetaList:
                     rho = j * np.cos(theta) + i * np.sin(theta) + rhoMax
-
+                    theta += thetaMax
                     rho_ind = int(rho / rhoRes)
                     theta_ind = int(theta / thetaRes)
 
@@ -355,7 +355,7 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
         - pad the thing, use strict less
         - patch consideration?
     """
-    countThreshold = 80
+    countThreshold = 96
     patch_size = 10 # how many pixels above/below/side
 
     original_shape = H.shape
@@ -371,18 +371,19 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
     thetas = []
     counts = []
     rhoMax = H.shape[0] // 2 * rhoRes
+    thetaMax =  0.5 * math.pi
     #Image.fromarray(suppressed_H).show()
     for i in range(original_shape[0]):
         for j in range(original_shape[1]):
             if suppressed_H[i][j] != 0:
                 counts.append(suppressed_H[i][j])
                 rhos.append(i*rhoRes-rhoMax)
-                thetas.append(j*thetaRes)
+                thetas.append(j*thetaRes - thetaMax)
     
     zipped = list(zip(counts, rhos, thetas))
     
     sorted_result = sorted(zipped, key=lambda x : x[0]) # sort using number of counts
-    #print(sorted_result)
+    print(sorted_result)
     sorted_result = sorted_result[-nLines:]
     
     lRho = np.array([rho for c, rho, theta in sorted_result]) #* rhoRes
@@ -431,19 +432,31 @@ def find_xy_tuples(y_shape, x_shape, rho, theta):
     
     coordinates = []
     for r, t in zip(rho, theta):
+        if np.cos(t) == 0.0:
+            y_intersect = int(r / np.sin(t))
+            print(f"y intersect: {y_intersect}")
+            coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - (y_intersect))])
+        elif np.sin(t) == 0.0:
+            x_intersect = int(r / np.cos(t))
+            print(f"x intersect: {x_intersect}")
+            coordinates.append([(x_intersect, 0), (x_intersect, y_shape)])
         
-        x_intersect = int(r / np.cos(t))
-        y_intersect = int(r / np.sin(t))
-        slope = -1 * (np.cos(t) / np.sin(t))
-        """
-        if abs(slope) < 0.00001:
-            coordinates.append([(0, -1*(y_intersect-y_shape)), (x_shape, -1*(y_intersect-y_shape))])
-            print(f"rho: {r}, theta: {t}, coordinates: [{(0, -1*(y_intersect-y_shape))}, {(x_shape, -1*(y_intersect-y_shape))}]")
+        elif r / np.cos(t) == float("inf") or r / np.cos(t) == float("-inf"):
+            y_intersect = int(r / np.sin(t))
+            print(f"y intersect: {y_intersect}")
+            coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - (y_intersect))])
+        elif r / np.sin(t) == float("inf") or r / np.sin(t) == float("-inf"):
+            x_intersect = int(r / np.cos(t))
+            print(f"x intersect: {x_intersect}")
+            coordinates.append([(x_intersect, 0), (x_intersect, y_shape)])
+        
         else:
-        """
-        coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - int(slope * x_shape + y_intersect))])
-        #coordinates.append([(0, -1*(y_intersect-y_shape)), (int((y_shape - y_intersect) / slope), 0)])
-        print(f"rho: {r}, theta: {t}, coordinates: [{(0, y_shape - (y_intersect))}, {(x_shape, y_shape - int(slope * x_shape + y_intersect))}]")
+            x_intersect = int(r / np.cos(t))
+            y_intersect = int(r / np.sin(t))
+            slope = -1 * (np.cos(t) / np.sin(t))
+            coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - int(slope * x_shape + y_intersect))])
+            #coordinates.append([(0, -1*(y_intersect-y_shape)), (int((y_shape - y_intersect) / slope), 0)])
+            print(f"rho: {r}, theta: {t}, coordinates: [{(0, y_shape - (y_intersect))}, {(x_shape, y_shape - int(slope * x_shape + y_intersect))}]")
 
     return coordinates
 
