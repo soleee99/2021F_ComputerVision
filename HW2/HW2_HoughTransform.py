@@ -16,8 +16,7 @@ highThreshold=100
 lowThreshold=20
 rhoRes=1.5
 thetaRes=math.pi/180
-nLines=10
-
+nLines=8
 
 def replication_pad(image, kernel_height, kernel_width):
     image_height = image.shape[0]
@@ -250,7 +249,7 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     Im = non_maximum_suppression(Im, Io)
     #Image.fromarray(Im).show()
     Im = double_thresholding(Im)
-    #Image.fromarray(Im).show()
+    Image.fromarray(Im).show()
     
 
     return Im, Io, Ix, Iy
@@ -266,7 +265,7 @@ def HoughTransform(Im, rhoRes, thetaRes):
         H: Hough transform accumulator
     """
     
-    Image.fromarray(Im).show()
+    #Image.fromarray(Im).show()
 
     thetaList = np.arange(-0.5* math.pi, 0.5*math.pi, thetaRes)
     #print(thetaList)
@@ -315,7 +314,8 @@ def HoughTransform(Im, rhoRes, thetaRes):
                     H[rho_ind][theta_ind] += 1
                     
 
-    Image.fromarray(H).show()
+    #Image.fromarray(H).show()
+    
     return H
     
     
@@ -367,6 +367,8 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
             patch = padded_H[i-patch_size:i+(patch_size+1), j-patch_size:j+(patch_size+1)]
             suppressed_H[i-patch_size][j-patch_size] = non_maximum_suppression_for_houghlines(patch, patch_size, countThreshold)
     
+    
+
     rhos = []
     thetas = []
     counts = []
@@ -383,18 +385,154 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
     zipped = list(zip(counts, rhos, thetas))
     
     sorted_result = sorted(zipped, key=lambda x : x[0]) # sort using number of counts
-    print(sorted_result)
+    #print(sorted_result)
     sorted_result = sorted_result[-nLines:]
     
     lRho = np.array([rho for c, rho, theta in sorted_result]) #* rhoRes
     lTheta = np.array([theta for c, rho, theta in sorted_result]) #* thetaRes
-    print(list(zip(lRho, lTheta)))
-    print("\n")
+    #print(list(zip(lRho, lTheta)))
+    #print("\n")
     return lRho,lTheta
 
-def HoughLineSegments(lRho, lTheta, Im):
-    # TODO ...
 
+def HoughTransformKeepPoints(Im, rhoRes, thetaRes):
+    thetaList = np.arange(-0.5* math.pi, 0.5*math.pi, thetaRes)
+    rhoMax = int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
+    thetaMax = 0.5*math.pi
+
+    # make this to keep in track of what points voted for a line
+    points = []
+    for i in range(int(2*rhoMax/rhoRes) + 1):
+        for_row = []
+        for j in range(int(2* thetaMax / thetaRes) + 1):
+            for_row.append([])
+        points.append(for_row)
+
+        
+    for i in range(Im.shape[0]):
+        for j in range(Im.shape[1]):
+            if Im[Im.shape[0] - i - 1][j] >= highThreshold:
+                for theta in thetaList:
+                    rho = j * np.cos(theta) + i * np.sin(theta) + rhoMax
+                    theta += thetaMax
+                    rho_ind = int(rho / rhoRes)
+                    theta_ind = int(theta / thetaRes)
+
+                    points[rho_ind][theta_ind].append((Im.shape[0] - i - 1,j))
+    
+    
+
+    return points
+
+
+def get_start_end(points, segment_threshold, r, t):
+    case = 0
+    if np.cos(t) == 0.0:
+        case = 1
+    elif np.sin(t) == 0.0:
+       case = 2
+    elif r / np.cos(t) == float("inf") or r / np.cos(t) == float("-inf"):
+        case = 1
+    elif r / np.sin(t) == float("inf") or r / np.sin(t) == float("-inf"):
+        case = 2
+    else:
+        case = 3
+
+    #print(f"\nsegment threshold: {segment_threshold}, case: {case}")
+    #print(f"entire sorted list: {points}")
+    groups = []
+    ind = 0
+    x = points[0][0]
+    y = points[0][1]
+    if case == 3:
+        slope = -1 * (np.cos(t) / np.sin(t))
+        if abs(slope) > 25:
+            case = 2
+        if segment_threshold == 3:
+            min_slope = 0.02
+        elif segment_threshold == 5:
+            min_slope = 0.017
+        else:
+            min_slope = 0.017
+        if abs(slope) <= min_slope:
+            case = 1
+        #print(f"case 3 slope: {slope}, changed to {case}")
+        
+    groups_added = False
+    for i, point in enumerate(points):
+        if ((case == 1 and (abs(point[1] - y) > segment_threshold)) or \
+            (case == 2 and (abs(point[0] - x) > segment_threshold)) or \
+            (case == 3 and (abs(point[0] - x) > segment_threshold and abs(point[1] - y) > segment_threshold))):
+            
+            #print(f"add groups:{points[ind:i]}, from {ind} to {i}")
+            groups.append(points[ind:i])
+            ind = i
+            groups_added = True
+        x = point[0]
+        y = point[1]
+    
+    if groups_added:
+        #print(f"add groups:{points[ind:]}, from {ind} to end")
+        groups.append(points[ind:])
+    
+    if len(groups) == 0:
+        groups = [points]
+    
+    
+    max_len = 0
+    max_group = groups[0]
+    for g in groups:
+        
+        if len(g) > max_len:
+            max_len = len(g)
+            max_group = g
+    
+    return max_group[0], max_group[-1]
+
+
+def HoughLineSegments(lRho, lTheta, Im, segment_threshold):
+    # TODO ...
+    """
+    If the slope and gradient direction for that point are orthogonal....
+    """
+    l = []
+
+    H = HoughTransform(Im, rhoRes, thetaRes)
+    countThreshold = 96
+    patch_size = 10 # how many pixels above/below/side
+
+    original_shape = H.shape
+    padded_H = replication_pad(H, patch_size, patch_size)
+    suppressed_H = np.zeros(original_shape)
+
+    for i in range(patch_size, original_shape[0]+patch_size):
+        for j in range(patch_size, original_shape[1]+patch_size):
+            patch = padded_H[i-patch_size:i+(patch_size+1), j-patch_size:j+(patch_size+1)]
+            suppressed_H[i-patch_size][j-patch_size] = non_maximum_suppression_for_houghlines(patch, patch_size, countThreshold)
+    
+    counts = []
+    line_points = []
+    for i in range(suppressed_H.shape[0]):
+        for j in range(suppressed_H.shape[1]):
+            if suppressed_H[i][j]!= 0:
+                counts.append(suppressed_H[i][j])
+                line_points.append((i,j))
+    
+    zipped = list(zip(counts, line_points))
+    sorted_result = sorted(zipped, key=lambda x : x[0]) # sort using number of counts
+    sorted_result = sorted_result[-nLines:]
+
+    points = HoughTransformKeepPoints(Im, rhoRes, thetaRes)
+    thetaMax = 0.5 * math.pi
+    rhoMax = int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
+
+    for c, (rho_ind, theta_ind) in sorted_result:
+        
+        p = points[rho_ind][theta_ind]  # p is list of points that voted for this (rho, theta) line
+        sorted_points = sorted(p, key=lambda x: (x[0], x[1]))
+        start, end = get_start_end(sorted_points, segment_threshold, rho_ind * rhoRes - rhoMax, theta_ind*thetaRes-thetaMax)
+    
+        l.append({'start':start, 'end':end})
 
     return l
 
@@ -434,20 +572,16 @@ def find_xy_tuples(y_shape, x_shape, rho, theta):
     for r, t in zip(rho, theta):
         if np.cos(t) == 0.0:
             y_intersect = int(r / np.sin(t))
-            print(f"y intersect: {y_intersect}")
             coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - (y_intersect))])
         elif np.sin(t) == 0.0:
             x_intersect = int(r / np.cos(t))
-            print(f"x intersect: {x_intersect}")
             coordinates.append([(x_intersect, 0), (x_intersect, y_shape)])
         
         elif r / np.cos(t) == float("inf") or r / np.cos(t) == float("-inf"):
             y_intersect = int(r / np.sin(t))
-            print(f"y intersect: {y_intersect}")
             coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - (y_intersect))])
         elif r / np.sin(t) == float("inf") or r / np.sin(t) == float("-inf"):
             x_intersect = int(r / np.cos(t))
-            print(f"x intersect: {x_intersect}")
             coordinates.append([(x_intersect, 0), (x_intersect, y_shape)])
         
         else:
@@ -455,19 +589,34 @@ def find_xy_tuples(y_shape, x_shape, rho, theta):
             y_intersect = int(r / np.sin(t))
             slope = -1 * (np.cos(t) / np.sin(t))
             coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - int(slope * x_shape + y_intersect))])
-            #coordinates.append([(0, -1*(y_intersect-y_shape)), (int((y_shape - y_intersect) / slope), 0)])
-            print(f"rho: {r}, theta: {t}, coordinates: [{(0, y_shape - (y_intersect))}, {(x_shape, y_shape - int(slope * x_shape + y_intersect))}]")
 
     return coordinates
 
+
+
 def plot_image(img, coordinates):
-    
-    draw = ImageDraw.Draw(img)
+    new_img = img.copy()
+    draw = ImageDraw.Draw(new_img)
     #print(coordinates)
     for coordinate in coordinates:
         #draw = ImageDraw.Draw(img)
         draw.line(coordinate)
-    img.show()
+    new_img.show()
+
+
+
+def plot_image_dict(img, dict_points):
+    new_img = img.copy()
+    draw = ImageDraw.Draw(new_img)
+    coordinates = []
+    for point in dict_points:
+        coordinates.append([(point['start'][1], point['start'][0]), (point['end'][1], point['end'][0])])
+    #print(coordinates)
+    for coordinate in coordinates:
+        #draw = ImageDraw.Draw(img)
+        draw.line(coordinate)
+    new_img.show()
+
 
 
 def main():
@@ -476,7 +625,7 @@ def main():
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
         img = Image.open(img_path).convert("L")
-        print(img.size)
+        #print(img.size)
         
        
 
@@ -493,9 +642,18 @@ def main():
         
         coordinates = find_xy_tuples(Igs.shape[0], Igs.shape[1], lRho, lTheta)
         plot_image(img, coordinates)
-        """
-        l = HoughLineSegments(lRho, lTheta, Im)
-        """
+        
+        if 'img01' in img_path:
+            segment_threshold = 3
+        elif 'img02' in img_path:
+            segment_threshold = 5
+        elif 'img03' in img_path:
+            segment_threshold = 800
+        elif 'img04' in img_path:
+            segment_threshold = 6
+
+        l = HoughLineSegments(lRho, lTheta, Im, segment_threshold)
+        plot_image_dict(img, l)
         # saves the outputs to files
         # Im, H, Im + hough line , Im + hough line segments
     
