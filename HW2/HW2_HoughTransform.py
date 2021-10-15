@@ -16,7 +16,7 @@ highThreshold=100
 lowThreshold=20
 rhoRes=1
 thetaRes=math.pi/180
-nLines=10
+nLines=7
 
 
 def replication_pad(image, kernel_height, kernel_width):
@@ -270,7 +270,7 @@ def HoughTransform(Im, rhoRes, thetaRes):
 
     thetaList = np.arange(0, 2*math.pi, thetaRes)
     #print(thetaList)
-    rhoMax = 800 #int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
+    rhoMax = int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
     thetaMax = 2 * math.pi
 
     """
@@ -355,8 +355,8 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
         - pad the thing, use strict less
         - patch consideration?
     """
-    countThreshold = 50
-    patch_size = 15 # how many pixels above/below/side
+    countThreshold = 80
+    patch_size = 10 # how many pixels above/below/side
 
     original_shape = H.shape
     padded_H = replication_pad(H, patch_size, patch_size)
@@ -370,7 +370,7 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
     rhos = []
     thetas = []
     counts = []
-    rhoMax = 800
+    rhoMax = H.shape[0] // 2 * rhoRes
     #Image.fromarray(suppressed_H).show()
     for i in range(original_shape[0]):
         for j in range(original_shape[1]):
@@ -428,18 +428,22 @@ def find_xy_tuples(y_shape, x_shape, rho, theta):
     for i, j in zip(x, y):
         coordinates.append([(i,0),(0,y_shape - j)])
     """
+    
     coordinates = []
     for r, t in zip(rho, theta):
         
         x_intersect = int(r / np.cos(t))
         y_intersect = int(r / np.sin(t))
         slope = -1 * (np.cos(t) / np.sin(t))
+        """
         if abs(slope) < 0.00001:
             coordinates.append([(0, -1*(y_intersect-y_shape)), (x_shape, -1*(y_intersect-y_shape))])
             print(f"rho: {r}, theta: {t}, coordinates: [{(0, -1*(y_intersect-y_shape))}, {(x_shape, -1*(y_intersect-y_shape))}]")
         else:
-            coordinates.append([(0, -1*(y_intersect-y_shape)), (int(y_shape - y_intersect) / slope, 0)])
-            print(f"rho: {r}, theta: {t}, coordinates: [{(0, -1*(y_intersect-y_shape))}, {(int(y_shape - y_intersect) / slope, 0)}]")
+        """
+        coordinates.append([(0, y_shape - (y_intersect)), (x_shape, y_shape - int(slope * x_shape + y_intersect))])
+        #coordinates.append([(0, -1*(y_intersect-y_shape)), (int((y_shape - y_intersect) / slope), 0)])
+        print(f"rho: {r}, theta: {t}, coordinates: [{(0, y_shape - (y_intersect))}, {(x_shape, y_shape - int(slope * x_shape + y_intersect))}]")
 
     return coordinates
 
@@ -448,6 +452,7 @@ def plot_image(img, coordinates):
     draw = ImageDraw.Draw(img)
     #print(coordinates)
     for coordinate in coordinates:
+        #draw = ImageDraw.Draw(img)
         draw.line(coordinate)
     img.show()
 
@@ -459,11 +464,8 @@ def main():
         # load grayscale image
         img = Image.open(img_path).convert("L")
         print(img.size)
-        """
-        draw = ImageDraw.Draw(img)
-        draw.line((-50,-100)+(200, 100))
-        img.show()
-        """
+        
+       
 
         Igs = np.array(img)
         #TODO: why is this needed????" Igs = Igs / 255.
