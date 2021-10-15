@@ -2,7 +2,7 @@
 import math
 import glob
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 # parameters
@@ -12,11 +12,11 @@ resultdir='./results'
 
 # TODO:you can calibrate these parameters
 sigma=2
-highThreshold=130
+highThreshold=100
 lowThreshold=20
-rhoRes=2
+rhoRes=1
 thetaRes=math.pi/180
-nLines=20
+nLines=10
 
 
 def replication_pad(image, kernel_height, kernel_width):
@@ -83,7 +83,7 @@ def suppress_result(patch, orientation):
     
     def to_radian(degree):
         # 1 degree = 0.0174533 rad
-        return degree * thetaRes
+        return degree * (math.pi/180)
 
     if (to_radian(22.5) <= orientation and orientation < to_radian(67.5)) \
         or (to_radian(-157.5) <= orientation and orientation < to_radian(-112.5)):
@@ -231,13 +231,13 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     # find Ix using sobel filter
     # TODO: maybe change sobel filter size?
     
-    sobel_x_3by3 = np.array([[-1,0,1],[-3,0,3],[-1,0,1]])
+    sobel_x_3by3 = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
     #sobel_x_3by3 = np.array([[-1,-2,0,2,1],[-2,-3,0,3,2],[-3,-5,0,5,3],[-2,-3,0,3,2],[-1,-2,0,2,1]])
     Ix = ConvFilter(smoothed_image, sobel_x_3by3)
 
     # find Iy using sobel filter
     # TODO: maybe change sobel filter size?
-    sobel_y_3by3 = np.array([[1,3,1],[0,0,0],[-1,-3,-1]])
+    sobel_y_3by3 = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
     #sobel_y_3by3 = np.array([[1,2,3,2,1],[2,3,5,3,2],[0,0,0,0,0],[-2,-3,-5,-3,-2],[-1,-2,-3,-2,-1]])
     Iy = ConvFilter(smoothed_image, sobel_y_3by3)
 
@@ -248,9 +248,9 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     Io = np.arctan2(Iy, Ix) # TODO: check for when Ix magnitude is 0
 
     Im = non_maximum_suppression(Im, Io)
-    Image.fromarray(Im).show()
+    #Image.fromarray(Im).show()
     Im = double_thresholding(Im)
-    Image.fromarray(Im).show()
+    #Image.fromarray(Im).show()
     
 
     return Im, Io, Ix, Iy
@@ -265,40 +265,130 @@ def HoughTransform(Im, rhoRes, thetaRes):
     Returns:
         H: Hough transform accumulator
     """
-    thetaMax = np.pi * 2
-    rhoMax = 700 # maby 800
+    
+    Image.fromarray(Im).show()
 
-    thetaSplitValue = 50
-    thetaSplitList = np.arange(0, thetaRes, thetaRes/50)
-    #print(thetaSplitList)
-    thetaList = np.arange(0,thetaMax, thetaRes)
+    thetaList = np.arange(0, 2*math.pi, thetaRes)
     #print(thetaList)
+    rhoMax = 800 #int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
+    thetaMax = 2 * math.pi
 
-    H = np.zeros((int(rhoMax / rhoRes), int(thetaMax / thetaRes)))
+    """
+    H = np.zeros((int(rhoMax / rhoRes) + 1, int(thetaMax / thetaRes) + 1))
 
     for i in range(Im.shape[0]):
         for j in range(Im.shape[1]):
-            if Im[i][j] >= highThreshold:
+            if Im[Im.shape[0] - i - 1][j] >= highThreshold:
                 # if is an edge
-                for t, t_val in enumerate(thetaList):
-                    thetas = t_val + thetaSplitList
-                    rhos = i * np.cos(thetas) + j * np.sin(thetas)
-                    rhoMaxInGrid = np.max(rhos)
-                    rhoMinInGrid = np.min(rhos)
-                    rhoMaxInd = rhoMaxInGrid // rhoRes
-                    rhoMinInd = rhoMinInGrid // rhoRes
+                for theta in thetaList:
+                    #thetas = t_val + thetaSplitList
+                    rho = j * np.cos(theta) + i * np.sin(theta) 
+                    #rhoMaxInGrid = np.max(rhos)
+                    #rhoMinInGrid = np.min(rhos)
+                    #rhoMaxInd = rhoMaxInGrid // rhoRes
+                    #rhoMinInd = rhoMinInGrid // rhoRes
+                    if rho < 0:
+                        rho = rho * -1
+                        theta += math.pi
+                        if theta >= 2* math.pi:
+                            theta -= 2*math.pi
+                        
+                    rho_ind = int(rho / rhoRes)
+                    theta_ind = int(theta / thetaRes)
+
+                    H[rho_ind][theta_ind] += 1
+                    #for r in np.arange(rhoMinInd, rhoMaxInd+1):
+                        #print(f"({r}, {t})")
+                    #    H[int(r)][int(t)] += 1
+    """
+
+    H = np.zeros((int(2*rhoMax/rhoRes) + 1, int(thetaMax / thetaRes) + 1))
+    for i in range(Im.shape[0]):
+        for j in range(Im.shape[1]):
+            if Im[Im.shape[0] - i - 1][j] >= highThreshold:
+                for theta in thetaList:
+                    rho = j * np.cos(theta) + i * np.sin(theta) + rhoMax
+
+                    rho_ind = int(rho / rhoRes)
+                    theta_ind = int(theta / thetaRes)
+
+                    H[rho_ind][theta_ind] += 1
                     
-                    for r in np.arange(rhoMinInd, rhoMaxInd+1):
-                        H[int(r)][int(t)] += 1
 
     Image.fromarray(H).show()
     return H
+    
+    
+
+
+
+def non_maximum_suppression_for_houghlines(patch, patch_size, countThreshold):
+    count = patch[patch_size][patch_size]
+    
+    for i in range(patch.shape[0]):
+        for j in range(patch.shape[1]):
+            if i == patch_size and j == patch_size:
+                continue
+            
+            nearby_count = patch[i][j]
+            if count < nearby_count :
+                return 0
+    if count >= countThreshold:
+        return count
+    else:
+        return 0
+
 
 
 def HoughLines(H,rhoRes,thetaRes,nLines):
     # TODO ...
+    """
+    Inputs:
+        - H: hough transform accumulator
+        - rhoRes, thetaRes: resolution, neede to recover actual rho and theta 
+                            value from the hough transform accumulator index
+        - nLines: number of lines (hopefully different local maximas of H) to return
+    Outputs:
+        - lRho, lTheta: nLines-sized arrays that hold the line values!
+    Tip:
+        - maybe set a count threshold to consider local maxima
+        - pad the thing, use strict less
+        - patch consideration?
+    """
+    countThreshold = 50
+    patch_size = 15 # how many pixels above/below/side
 
+    original_shape = H.shape
+    padded_H = replication_pad(H, patch_size, patch_size)
+    suppressed_H = np.zeros(original_shape)
 
+    for i in range(patch_size, original_shape[0]+patch_size):
+        for j in range(patch_size, original_shape[1]+patch_size):
+            patch = padded_H[i-patch_size:i+(patch_size+1), j-patch_size:j+(patch_size+1)]
+            suppressed_H[i-patch_size][j-patch_size] = non_maximum_suppression_for_houghlines(patch, patch_size, countThreshold)
+    
+    rhos = []
+    thetas = []
+    counts = []
+    rhoMax = 800
+    #Image.fromarray(suppressed_H).show()
+    for i in range(original_shape[0]):
+        for j in range(original_shape[1]):
+            if suppressed_H[i][j] != 0:
+                counts.append(suppressed_H[i][j])
+                rhos.append(i*rhoRes-rhoMax)
+                thetas.append(j*thetaRes)
+    
+    zipped = list(zip(counts, rhos, thetas))
+    
+    sorted_result = sorted(zipped, key=lambda x : x[0]) # sort using number of counts
+    #print(sorted_result)
+    sorted_result = sorted_result[-nLines:]
+    
+    lRho = np.array([rho for c, rho, theta in sorted_result]) #* rhoRes
+    lTheta = np.array([theta for c, rho, theta in sorted_result]) #* thetaRes
+    print(list(zip(lRho, lTheta)))
+    print("\n")
     return lRho,lTheta
 
 def HoughLineSegments(lRho, lTheta, Im):
@@ -307,16 +397,73 @@ def HoughLineSegments(lRho, lTheta, Im):
 
     return l
 
+
+
+def find_xy_tuples(y_shape, x_shape, rho, theta):
+    # rho = x cos(theta) + y sin(theta)
+    # to plot, (0,0) is top left corner
+    """
+    coordinates = []
+    for r, t in zip(rho, theta):
+        x_intersect = int(r / np.cos(t))
+        y_intersect = int(r / np.sin(t))
+        slope = -1 * (np.cos(t) / np.sin(t))
+        if slope > 0:
+            if y_intersect >= 0:
+                if slope * x_shape + y_intersect <= y_shape:
+                    coordinates.append([(y_shape-y_intersect,0), (y_shape-(int(slope * x_shape) + y_intersect), x_shape-1)])
+                else:
+                    coordinates.append([(y_shape-y_intersect,0), (0, int((1/slope)*y_shape) + x_intersect)])
+            else:
+                if slope * x_shape + y_intersect <= y_shape:
+                    coordinates.append([()])
+
+
+
+
+    x = rho / np.cos(theta)
+    y = rho / np.sin(theta)
+
+    coordinates = []
+    for i, j in zip(x, y):
+        coordinates.append([(i,0),(0,y_shape - j)])
+    """
+    coordinates = []
+    for r, t in zip(rho, theta):
+        
+        x_intersect = int(r / np.cos(t))
+        y_intersect = int(r / np.sin(t))
+        slope = -1 * (np.cos(t) / np.sin(t))
+        if abs(slope) < 0.00001:
+            coordinates.append([(0, -1*(y_intersect-y_shape)), (x_shape, -1*(y_intersect-y_shape))])
+            print(f"rho: {r}, theta: {t}, coordinates: [{(0, -1*(y_intersect-y_shape))}, {(x_shape, -1*(y_intersect-y_shape))}]")
+        else:
+            coordinates.append([(0, -1*(y_intersect-y_shape)), (int(y_shape - y_intersect) / slope, 0)])
+            print(f"rho: {r}, theta: {t}, coordinates: [{(0, -1*(y_intersect-y_shape))}, {(int(y_shape - y_intersect) / slope, 0)}]")
+
+    return coordinates
+
+def plot_image(img, coordinates):
+    
+    draw = ImageDraw.Draw(img)
+    #print(coordinates)
+    for coordinate in coordinates:
+        draw.line(coordinate)
+    img.show()
+
+
 def main():
-    """
-    x = np.array([[1,2,3],[4,5,6]])
-    G = np.ones((3,5)) / 15
-    _ = ConvFilter(x, G)
-    """
+    
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
         img = Image.open(img_path).convert("L")
+        print(img.size)
+        """
+        draw = ImageDraw.Draw(img)
+        draw.line((-50,-100)+(200, 100))
+        img.show()
+        """
 
         Igs = np.array(img)
         #TODO: why is this needed????" Igs = Igs / 255.
@@ -324,13 +471,14 @@ def main():
         # Hough function
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
 
-        #Image.fromarray(Ix).show()  #FIXME:
-        #Image.fromarray(Iy).show()  # FIXME:
         
+        H = HoughTransform(Im, rhoRes, thetaRes)
         
-        H= HoughTransform(Im, rhoRes, thetaRes)
+        lRho,lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
+        
+        coordinates = find_xy_tuples(Igs.shape[0], Igs.shape[1], lRho, lTheta)
+        plot_image(img, coordinates)
         """
-        lRho,lTheta =HoughLines(H,rhoRes,thetaRes,nLines)
         l = HoughLineSegments(lRho, lTheta, Im)
         """
         # saves the outputs to files
