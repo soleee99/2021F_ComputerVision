@@ -235,11 +235,9 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     
     sobel_x_3by3 = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
     Ix = ConvFilter(smoothed_image, sobel_x_3by3)
-    #Image.fromarray(Ix).show()
 
     sobel_y_3by3 = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
     Iy = ConvFilter(smoothed_image, sobel_y_3by3)
-    #Image.fromarray(Iy).show()
 
     # find Im and Io
     Im = np.sqrt(Ix**2 + Iy**2)
@@ -248,9 +246,7 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     Io = np.arctan2(Iy, Ix) # TODO: check for when Ix magnitude is 0
 
     Im = non_maximum_suppression(Im, Io)
-    #Image.fromarray(Im).show()
     Im = double_thresholding(Im)
-    #Image.fromarray(Im).show()
     
 
     return Im, Io, Ix, Iy
@@ -266,7 +262,6 @@ def HoughTransform(Im, rhoRes, thetaRes):
         H: Hough transform accumulator
     """
     
-    #Image.fromarray(Im).show()
 
     thetaList = np.arange(-0.5* math.pi, 0.5*math.pi, thetaRes)
     rhoMax = int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
@@ -284,7 +279,6 @@ def HoughTransform(Im, rhoRes, thetaRes):
 
                     H[rho_ind][theta_ind] += 1
                     
-    #Image.fromarray(H).show()
     return H
     
     
@@ -358,6 +352,7 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
     return lRho,lTheta
 
 
+
 def HoughTransformKeepPoints(Im, rhoRes, thetaRes):
     thetaList = np.arange(-0.5* math.pi, 0.5*math.pi, thetaRes)
     rhoMax = int(np.ceil(np.sqrt(Im.shape[0]**2 + Im.shape[1]**2)))
@@ -383,9 +378,8 @@ def HoughTransformKeepPoints(Im, rhoRes, thetaRes):
 
                     points[rho_ind][theta_ind].append((Im.shape[0] - i - 1,j))
     
-    
-
     return points
+
 
 
 def get_start_end(points, r, t):
@@ -448,6 +442,7 @@ def get_start_end(points, r, t):
             max_group = g
     
     return max_group[0], max_group[-1]
+
 
 
 def HoughLineSegments(lRho, lTheta, Im):
@@ -536,7 +531,7 @@ def plot_image(img, coordinates):
     draw = ImageDraw.Draw(new_img)
     for coordinate in coordinates:
         draw.line(coordinate)
-    new_img.show()
+    #new_img.show()
     return new_img
 
 
@@ -548,7 +543,7 @@ def plot_image_dict(img, dict_points):
         coordinates.append([(point['start'][1], point['start'][0]), (point['end'][1], point['end'][0])])
     for coordinate in coordinates:\
         draw.line(coordinate)
-    new_img.show()
+    #new_img.show()
 
     return new_img
 
@@ -568,7 +563,7 @@ def save_image(Im, H, Im_HL, Im_HS, img_no):
 def main():
     if not os.path.exists(resultdir):
         os.mkdir(resultdir)
-        
+
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
@@ -576,14 +571,10 @@ def main():
         
     
         Igs = np.array(img)
-        
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
-
-        
         H = HoughTransform(Im, rhoRes, thetaRes)
-        
         lRho,lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
-        
+
         coordinates = find_xy_tuples(Igs.shape[0], Igs.shape[1], lRho, lTheta)
         Im_HL = plot_image(img, coordinates)
         
@@ -600,9 +591,7 @@ def main():
         l = HoughLineSegments(lRho, lTheta, Im)
         Im_HS = plot_image_dict(img, l)
         
-        # TODO: saves the outputs to files
-        # Im, H, Im + hough line , Im + hough line segments
-
+        
         if 'img01' in img_path:
             save_image(Im, H, Im_HL, Im_HS, '/img01')
         elif 'img02' in img_path:
