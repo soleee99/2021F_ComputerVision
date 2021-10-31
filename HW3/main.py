@@ -108,19 +108,60 @@ def compute_h_norm(p1, p2):
     """
     """
     for i in range(p1.shape[0]):
-        r = np.expand_dims(np.concatenate((p2[i], np.array([1])), axis=-1), axis=-1)
-        homo = np.matmul(H, r)
-        print(homo)
-        print(f"actual: {p1[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
+        H_inv = np.linalg.inv(H)
+        r = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
+        homo = np.matmul(H_inv, r)
+        #print(homo)
+        print(f"actual: {p2[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
     """
     return H
 
 
-def warp_image(igs_in, igs_ref, H):
-    # TODO ...
-    igs_warp = igs_merge = 0
+def interpolation(img, coordinate):
+    # img is 2D numpy array (for a single channel)
+    # coordinate is the (x, y) value 
+    # in_coordinate is given as (0,0) at leftmost bottom
+    # interpolated by grabbing the nearest pixel
+    image_coordinate = np.zeros(2)
+    image_coordinate[0] = (Y-1) - (coordinate[1] / coordinate[2])
+    image_coordinate[1] = coordinate[0] / coordinate[2]
 
-    return igs_warp, igs_merge
+    # round to nearest integer
+    image_coordinate = np.rint(image_coordinate)
+
+    # handle corner cases
+    if image_coordinate[0] >= Y or image_coordinate[0] < 0:
+        return 0
+    elif image_coordinate[1] >= X or image_coordinate[1] < 0:
+        return 0
+    else:
+        return img[int(image_coordinate[0])][int(image_coordinate[1])]
+
+
+
+
+def warp_image(igs_in, igs_ref, H):
+    # TODO ... 
+    # currently, H changes igs_in -> igs_ref
+    H_inv = np.linalg.inv(H)
+    igs_warp = np.zeros(igs_ref.shape)
+    #Image.fromarray(np.uint8(igs_warp)).show()
+    in_channels = [igs_in[:,:,0], igs_in[:,:,1], igs_in[:,:,2]]
+    ref_channels = [igs_ref[:,:,0], igs_ref[:,:,1], igs_ref[:,:,2]]
+
+    
+    for j in range(X):
+        for i in range(Y):
+            ref_coordinate = np.array([j, (Y-1)-i, 1])  # (x, y, _)
+            in_coordinate = np.matmul(H_inv, ref_coordinate)    # (x, y, _)
+            igs_warp[i][j][0] = interpolation(in_channels[0], in_coordinate)
+            igs_warp[i][j][1] = interpolation(in_channels[1], in_coordinate)
+            igs_warp[i][j][2] = interpolation(in_channels[2], in_coordinate)
+            
+
+    Image.fromarray(np.uint8(igs_warp)).show()
+
+    return igs_warp#, igs_merge
 
 def rectify(igs, p1, p2):
     # TODO ...
