@@ -158,7 +158,7 @@ def warp_image(igs_in, igs_ref, H):
     #Image.fromarray(np.uint8(igs_warp)).show()
     in_channels = [igs_in[:,:,0], igs_in[:,:,1], igs_in[:,:,2]]
     ref_channels = [igs_ref[:,:,0], igs_ref[:,:,1], igs_ref[:,:,2]]
-    """
+    
     for j in range(X):
         for i in range(Y):
             ref_coordinate = np.array([j, (Y-1)-i, 1])  # (x, y, _)
@@ -169,19 +169,28 @@ def warp_image(igs_in, igs_ref, H):
             
 
     Image.fromarray(np.uint8(igs_warp)).show()
-    """
+    
     for j in range(merge_x):
         for i in range(merge_y):
-            if (j >= add_x) and (add_y <= i and i < add_y+Y):
-                continue
             x_coor = j - add_x
             y_coor = (merge_y-1)-i - add_y
             ref_coordinate = np.array([x_coor, y_coor, 1])
             in_coordinate = np.matmul(H_inv, ref_coordinate) 
-            igs_merge[i][j][0] = interpolation(in_channels[0], in_coordinate)
-            igs_merge[i][j][1] = interpolation(in_channels[1], in_coordinate)
-            igs_merge[i][j][2] = interpolation(in_channels[2], in_coordinate)
-    
+            inter_c0 = interpolation(in_channels[0], in_coordinate)
+            inter_c1 = interpolation(in_channels[1], in_coordinate)
+            inter_c2 = interpolation(in_channels[2], in_coordinate)
+
+            if (j >= add_x) and (add_y <= i and i < add_y+Y):
+                if inter_c0 == 0 and inter_c1 == 0 and inter_c2 == 0:
+                    # when non overlapping porto2 part, keep the original value
+                    inter_c0 = igs_merge[i][j][0]
+                    inter_c1 = igs_merge[i][j][1]
+                    inter_c2 = igs_merge[i][j][2]
+            
+            igs_merge[i][j][0] = inter_c0
+            igs_merge[i][j][1] = inter_c1
+            igs_merge[i][j][2] = inter_c2
+               
     Image.fromarray(np.uint8(igs_merge)).show()
     
     return igs_warp, igs_merge
@@ -201,78 +210,15 @@ def set_cor_mosaic():
     criterion: selected 20 CORNER points from both images.
     """
     
-    """
-    p_in = np.array([[1189, 1009],
-                     [1221, 1016],
-                     [1260, 943],
-                     [1288, 949],
-                     [1284, 784],
-                     [1445, 794],
-                     [1286, 694],
-                     [1146, 697],
-                     [1241, 659],
-                     [1287, 621],
-                     [1370, 619],
-                     [1462, 620],
-                     [1368, 477],
-                     [1118, 446],
-                     [1167, 410],
-                     [1228, 365],
-                     [1402, 393],
-                     [1334, 288],
-                     [1287, 255],
-                     [1254, 244]])
-    
-
-    p_ref = np.array([[447, 1008],
-                      [480, 1010],
-                      [513, 930],
-                      [542, 934],
-                      [536, 776],
-                      [678, 778],
-                      [540, 689],
-                      [679, 688],
-                      [493, 655],
-                      [539, 626],
-                      [612, 618],
-                      [689, 614],
-                      [613, 487],
-                      [376, 440],
-                      [428, 409],
-                      [487, 369],
-                      [641, 410],
-                      [584, 305],
-                      [538, 271],
-                      [510, 252]])
-    
-    
-    p_in = np.array([[1189, 1010],
-                     [1283, 784],
-                     [1445, 795],
-                     [1286, 691],
-                     [1447, 696]])
-                     #,
-                     #[1240, 658],
-                     #[1463, 618],
-                     #[1255, 242]])
-    
-    p_ref = np.array([[447, 1008],
-                     [538, 778],
-                     [678, 777],
-                     [539, 588],
-                     [681, 687]])
-                     #,
-                     #[498, 656],
-                     #[693, 619],
-                     #[511, 253]])
-    """
 
     p_in = np.array([[1187, 1009],
                      [1282, 693],
                      [1447, 694],
                      [1255, 241],
                      [1117, 438],
-                     [801, 512],
+                     #[801, 512],
+                     [1554, 624],
+                     [1531, 388],
                      [935, 805]])
                      #[1462, 619]])
 
@@ -281,7 +227,9 @@ def set_cor_mosaic():
                      [682, 686],
                      [510, 252],
                      [375, 435],
-                     [2, 499],
+                     #[2, 499],
+                     [765, 622],
+                     [747, 410],
                      [170, 824]])
                      #[694, 620]])
 
