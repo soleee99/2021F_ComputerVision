@@ -19,8 +19,10 @@ y = 0   |_______________________________|
 porto_X = 1600
 porto_Y = 1200
 
+# rectification image Y and X values
 rect_X = 1920
 rect_Y = 1056
+
 is_porto = True
 
 
@@ -50,7 +52,6 @@ def compute_h(p1, p2):
         A[2*i+1][7] = -1 * p1_y * p2_y
         A[2*i+1][8] = -1 * p1_y
 
-
     U, s, V = np.linalg.svd(A, full_matrices = True)
     
     # normalizing to return ||h|| = 1
@@ -68,7 +69,7 @@ def compute_h_norm(p1, p2):
     normalize the coordinates, and call compute_h on the normalized coordinates
     normalize x and y coordinates between [0, 1] by dividing by X, and Y respectively.
     """
-    print(is_porto)
+    
     if is_porto:
         X = porto_X
         Y = porto_Y
@@ -80,7 +81,7 @@ def compute_h_norm(p1, p2):
     p1_norm = np.zeros(p1.shape)
     p2_norm = np.zeros(p2.shape)
     N = p1.shape[0]
-    print(f"[compute h] X: {X}, Y: {Y}")
+
     # multiply homogeneous coordinates with normalization matrix
     for i in range(N):
         p1_homo_coor = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
@@ -94,7 +95,7 @@ def compute_h_norm(p1, p2):
     norm_mat_inv = np.linalg.inv(norm_mat)
     H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
     
-    
+    """
     # homography accuracy testing code for correspondence points
     for i in range(p1.shape[0]):
         H_inv = np.linalg.inv(H)
@@ -102,7 +103,7 @@ def compute_h_norm(p1, p2):
         homo = np.matmul(H_inv, r)
         #print(homo)
         print(f"actual: {p2[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
-    
+    """
 
     return H
 
@@ -120,7 +121,7 @@ def interpolation(img, coordinate):
     else:
         X = rect_X
         Y = rect_Y
-    #print(f"[interpolation] X: {X}, Y: {Y}")
+
     image_coordinate = np.zeros(2)
     image_coordinate[0] = (Y-1) - (coordinate[1] / coordinate[2])
     image_coordinate[1] = coordinate[0] / coordinate[2]
@@ -241,7 +242,6 @@ def set_cor_mosaic():
                      [747, 410],
                      [170, 824]])
 
-
     # for actual coordinate (start from 0)
     p_in = p_in - 1
     p_ref = p_ref - 1
@@ -268,55 +268,7 @@ def set_cor_rec():
                      [1349, 183],
                      [1100, 183],
                      [1061, 217]])
-    """
-    c_in = np.array([[1158, 531],
-                     [1203, 531],
-                     [1206, 579],
-                     [1160, 575],
-                     [1231, 533],
-                     [1278, 535],
-                     [1278, 581],
-                     [1232, 579]])
-
-    c_ref = np.array([[1158, 531],
-                     [1208, 531],
-                     [1208, 581],
-                     [1158, 581],
-                     [1233, 531],
-                     [1283, 531],
-                     [1283, 581],
-                     [1233, 581]])
     
-    c_in = np.array([[1314, 721],
-                     [1350, 722],
-                     [1315, 753],
-                     [7350, 755],
-                     [1091, 542],
-                     [1126, 543],
-                     [1126, 565],
-                     [1092, 563]])
-                     
-                     ,
-                     [1231, 533],
-                     [1278, 535],
-                     [1278, 581],
-                     [1232, 579]])
-    
-    c_ref = np.array([[1314, 721],
-                     [1349, 721],
-                     [1314, 751],
-                     [1349, 751],
-                     [1091, 542],
-                     [1126, 542],
-                     [1126, 562],
-                     [1091, 562]])
-                     
-                     ,
-                     [1233, 531],
-                     [1283, 531],
-                     [1283, 581],
-                     [1233, 581]])
-    """
     c_in = c_in - 1
     c_ref = c_ref - 1
     return c_in, c_ref
@@ -327,7 +279,7 @@ def main():
     ##############
     # step 1: mosaicing
     ##############
-    """
+    
     # read images
     img_in = Image.open('data/porto1.png').convert('RGB')
     img_ref = Image.open('data/porto2.png').convert('RGB')
@@ -352,7 +304,7 @@ def main():
     # save images
     img_warp.save('porto1_warped.png')
     img_merge.save('porto_mergeed.png')
-    """
+    
     ##############
     # step 2: rectification
     ##############
