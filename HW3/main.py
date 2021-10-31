@@ -19,6 +19,7 @@ y = 0   |_______________________________|
 X = 1600
 Y = 1200
 
+
 def compute_h(p1, p2):
     # p2 -> p1 transformation
     # p1 = H p2
@@ -44,75 +45,45 @@ def compute_h(p1, p2):
         A[2*i+1][6] = -1 * p1_y * p2_x
         A[2*i+1][7] = -1 * p1_y * p2_y
         A[2*i+1][8] = -1 * p1_y
-    #print(A)
-    # U (2N x 2N), s (N), V (N x N)
-    # s is in descending order (largest -> smallest)
-    #print(A)
-    
-    
+
+
     U, s, V = np.linalg.svd(A, full_matrices = True)
-    #print(np.allclose(A, np.matmul(np.matmul(U, np.diag(s)), V)))
-    #V = V.T
-    #print(s[-1])
+    
+    # normalizing to return ||h|| = 1
     h = V.T[:,np.argmin(s)]
     h_magnitude = np.sqrt(np.sum(h**2))
-    h = h / h_magnitude # normalize
+    h = h / h_magnitude 
     H = h.reshape(3,3)
-    #print(V)
-    #print(H)
-    #tmp = np.matmul(A.T, A)
-    #print(np.matmul(tmp, V[:,np.argmin(s)]))
-    #print(np.min(s) * V[:,np.argmin(s)])
     
-    """
-    A = np.matmul(A.T, A)
-    e_val, e_vec = np.linalg.eig(A)
-    H = np.reshape(e_vec[:, np.argmin(e_val)], (3,3))
-    print(H)
-    """
     return H
     
 
 
 def compute_h_norm(p1, p2):
-    # normalize the coordinates, and call compute_h on the normalized coordinates
-    # in here, decide to normalize x and y coordinates by dividing by larger value X
-    #print(f"p1 before norm: {p1}")
-    #p1 = p1 / X
-    #p2 = p2 / X
-    #print(f"p1 after norm: {p1}")
+    """
+    normalize the coordinates, and call compute_h on the normalized coordinates
+    normalize x and y coordinates between [0, 1] by dividing by X, and Y respectively.
+    """
 
-   
-
-    
     norm_mat = np.array([[1/X, 0, 0], [0, 1/Y, 0], [0, 0, 1]])
     p1_norm = np.zeros(p1.shape)
     p2_norm = np.zeros(p2.shape)
     N = p1.shape[0]
 
+    # multiply homogeneous coordinates with normalization matrix
     for i in range(N):
         p1_homo_coor = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
         p1_norm[i] = np.squeeze(np.matmul(norm_mat, p1_homo_coor), axis=-1)[:-1]
         p2_homo_coor = np.expand_dims(np.concatenate((p2[i], np.array([1])), axis=-1), axis=-1)
         p2_norm[i] = np.squeeze(np.matmul(norm_mat, p2_homo_coor), axis=-1)[:2]
     
-
-    #H = compute_h(p1, p2)
     H = compute_h(p1_norm, p2_norm)
 
-    #magnitude = np.sqrt(np.sum(H**2))
-    #print(H)
-    # normalize the h so that magnitude is 1
-    #H = H / magnitude
-
     # undo normalzation
-    
     norm_mat_inv = np.linalg.inv(norm_mat)
     H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
     
-    #print(H)
-    
-    
+    """
     # homography accuracy testing code for correspondence points
     for i in range(p1.shape[0]):
         H_inv = np.linalg.inv(H)
@@ -120,15 +91,18 @@ def compute_h_norm(p1, p2):
         homo = np.matmul(H_inv, r)
         #print(homo)
         print(f"actual: {p2[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
-    
+    """
+
     return H
 
 
+
 def interpolation(img, coordinate):
-    # img is 2D numpy array (for a single channel)
-    # coordinate is the (x, y) value 
-    # in_coordinate is given as (0,0) at leftmost bottom
-    # interpolated by grabbing the nearest pixel
+    """
+    img is 2D numpy array (for a single channel)
+    interpolated by grabbing the nearest pixel
+    returns 0 if out of range
+    """
     image_coordinate = np.zeros(2)
     image_coordinate[0] = (Y-1) - (coordinate[1] / coordinate[2])
     image_coordinate[1] = coordinate[0] / coordinate[2]
@@ -146,9 +120,7 @@ def interpolation(img, coordinate):
 
 
 
-
 def warp_image(igs_in, igs_ref, H):
-    # TODO ... 
     # currently, H changes igs_in -> igs_ref
     merge_y = 2400
     add_y = (merge_y - Y) // 2
@@ -158,23 +130,20 @@ def warp_image(igs_in, igs_ref, H):
     igs_merge = np.zeros((merge_y, merge_x, 3))
     igs_merge[add_y:add_y+Y, -1*X:, :] = igs_ref
 
-    #Image.fromarray(np.uint8(igs_merge)).show()
-
     H_inv = np.linalg.inv(H)
     igs_warp = np.zeros(igs_ref.shape)
-    #Image.fromarray(np.uint8(igs_warp)).show()
+
     in_channels = [igs_in[:,:,0], igs_in[:,:,1], igs_in[:,:,2]]
     ref_channels = [igs_ref[:,:,0], igs_ref[:,:,1], igs_ref[:,:,2]]
     
     for j in range(X):
         for i in range(Y):
-            ref_coordinate = np.array([j, (Y-1)-i, 1])  # (x, y, _)
-            in_coordinate = np.matmul(H_inv, ref_coordinate)    # (x, y, _)
+            ref_coordinate = np.array([j, (Y-1)-i, 1])  
+            in_coordinate = np.matmul(H_inv, ref_coordinate)    
             igs_warp[i][j][0] = interpolation(in_channels[0], in_coordinate)
             igs_warp[i][j][1] = interpolation(in_channels[1], in_coordinate)
             igs_warp[i][j][2] = interpolation(in_channels[2], in_coordinate)
             
-
     Image.fromarray(np.uint8(igs_warp)).show()
     
     for j in range(merge_x):
@@ -201,6 +170,7 @@ def warp_image(igs_in, igs_ref, H):
     Image.fromarray(np.uint8(igs_merge)).show()
     
     return igs_warp, igs_merge
+
 
 
 def rectify(igs, p1, p2):
