@@ -20,24 +20,100 @@ X = 1600
 Y = 1200
 
 def compute_h(p1, p2):
-    # TODO ...
+    # p2 -> p1 transformation
+    # p1 = H p2
+    
+
+    
+    N = p1.shape[0]
+    A = np.zeros((2*N, 9))
+    for i in range(N):
+        p1_x = p1[i][0]
+        p1_y = p1[i][1]
+        p2_x = p2[i][0]
+        p2_y = p2[i][1]
+
+        A[2*i][0] = p2_x
+        A[2*i][1] = p2_y
+        A[2*i][2] = 1
+        A[2*i][6] = -1 * p1_x * p2_x
+        A[2*i][7] = -1 * p1_x * p2_y
+        A[2*i][8] = -1 * p1_x
+
+        A[2*i+1][3] = p2_x
+        A[2*i+1][4] = p2_y
+        A[2*i+1][5] = 1
+        A[2*i+1][6] = -1 * p1_y * p2_x
+        A[2*i+1][7] = -1 * p1_y * p2_y
+        A[2*i+1][8] = -1 * p1_y
+    #print(A)
+    # U (2N x 2N), s (N), V (N x N)
+    # s is in descending order (largest -> smallest)
+    
+    U, s, V = np.linalg.svd(A, full_matrices = True)
+    #print(s[-1])
+    H = V[:,np.argmin(s)].reshape(3,3)
+    #print(V)
+    print(H)
 
     return H
+    
+
 
 def compute_h_norm(p1, p2):
-    # TODO ...
+    # normalize the coordinates, and call compute_h on the normalized coordinates
+    # in here, decide to normalize x and y coordinates by dividing by larger value X
+    #print(f"p1 before norm: {p1}")
+    #p1 = p1 / X
+    #p2 = p2 / X
+    #print(f"p1 after norm: {p1}")
 
+   
+
+    """
+    norm_mat = np.array([[1/X, 0, 0], [0, 1/Y, 0], [0, 0, 1]])
+    p1_norm = np.zeros(p1.shape)
+    p2_norm = np.zeros(p2.shape)
+    N = p1.shape[0]
+
+    for i in range(N):
+        p1_homo_coor = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
+        p1_norm[i] = np.squeeze(np.matmul(norm_mat, p1_homo_coor), axis=-1)[:-1]
+        p2_homo_coor = np.expand_dims(np.concatenate((p2[i], np.array([1])), axis=-1), axis=-1)
+        p2_norm[i] = np.squeeze(np.matmul(norm_mat, p2_homo_coor), axis=-1)[:2]
+    """
+
+    #H = compute_h(p1, p2)
+    #magnitude = np.sqrt(np.sum(H**2))
+    #print(H)
+    # normalize the h so that magnitude is 1
+    #H = H / magnitude
+
+    # undo normalzation
+    """
+    norm_mat_inv = np.linalg.inv(norm_mat)
+    H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
+    print(H)
+    """
+    r = np.expand_dims(np.concatenate((p2[0], np.array([1])), axis=-1), axis=-1)
+    #print(f"r: {r}")
+
+    #print(np.matmul(H, r))
     return H
+
 
 def warp_image(igs_in, igs_ref, H):
     # TODO ...
+    igs_warp = igs_merge = 0
 
     return igs_warp, igs_merge
 
 def rectify(igs, p1, p2):
     # TODO ...
+    igs_rec = 0
 
     return igs_rec
+
 
 def set_cor_mosaic():
     # TODO ...
@@ -94,8 +170,10 @@ def set_cor_mosaic():
 
     return p_in, p_ref
 
+
 def set_cor_rec():
     # TODO ...
+    c_in = c_ref = 0
     
 
     return c_in, c_ref
