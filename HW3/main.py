@@ -54,7 +54,10 @@ def compute_h(p1, p2):
     #print(np.allclose(A, np.matmul(np.matmul(U, np.diag(s)), V)))
     #V = V.T
     #print(s[-1])
-    H = V.T[:,np.argmin(s)].reshape(3,3)
+    h = V.T[:,np.argmin(s)]
+    h_magnitude = np.sqrt(np.sum(h**2))
+    h = h / h_magnitude # normalize
+    H = h.reshape(3,3)
     #print(V)
     #print(H)
     #tmp = np.matmul(A.T, A)
@@ -81,7 +84,7 @@ def compute_h_norm(p1, p2):
 
    
 
-    """
+    
     norm_mat = np.array([[1/X, 0, 0], [0, 1/Y, 0], [0, 0, 1]])
     p1_norm = np.zeros(p1.shape)
     p2_norm = np.zeros(p2.shape)
@@ -92,21 +95,25 @@ def compute_h_norm(p1, p2):
         p1_norm[i] = np.squeeze(np.matmul(norm_mat, p1_homo_coor), axis=-1)[:-1]
         p2_homo_coor = np.expand_dims(np.concatenate((p2[i], np.array([1])), axis=-1), axis=-1)
         p2_norm[i] = np.squeeze(np.matmul(norm_mat, p2_homo_coor), axis=-1)[:2]
-    """
+    
 
-    H = compute_h(p1, p2)
+    #H = compute_h(p1, p2)
+    H = compute_h(p1_norm, p2_norm)
+
     #magnitude = np.sqrt(np.sum(H**2))
     #print(H)
     # normalize the h so that magnitude is 1
     #H = H / magnitude
 
     # undo normalzation
-    """
+    
     norm_mat_inv = np.linalg.inv(norm_mat)
     H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
-    print(H)
-    """
     
+    #print(H)
+    
+    
+    # homography accuracy testing code for correspondence points
     for i in range(p1.shape[0]):
         H_inv = np.linalg.inv(H)
         r = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
@@ -143,9 +150,9 @@ def interpolation(img, coordinate):
 def warp_image(igs_in, igs_ref, H):
     # TODO ... 
     # currently, H changes igs_in -> igs_ref
-    merge_y = 3000
+    merge_y = 2400
     add_y = (merge_y - Y) // 2
-    merge_x = 4000
+    merge_x = 3400
     add_x = merge_x - X
 
     igs_merge = np.zeros((merge_y, merge_x, 3))
@@ -216,22 +223,18 @@ def set_cor_mosaic():
                      [1447, 694],
                      [1255, 241],
                      [1117, 438],
-                     #[801, 512],
                      [1554, 624],
                      [1531, 388],
                      [935, 805]])
-                     #[1462, 619]])
 
     p_ref = np.array([[447, 1007],
                      [538, 696],
                      [682, 686],
                      [510, 252],
                      [375, 435],
-                     #[2, 499],
                      [765, 622],
                      [747, 410],
                      [170, 824]])
-                     #[694, 620]])
 
 
     # for actual coordinate (start from 0)
