@@ -16,8 +16,12 @@ y = 0   |_______________________________|
 """
 
 # porto image Y and X values
-X = 1600
-Y = 1200
+porto_X = 1600
+porto_Y = 1200
+
+rect_X = 1920
+rect_Y = 1056
+is_porto = True
 
 
 def compute_h(p1, p2):
@@ -64,12 +68,19 @@ def compute_h_norm(p1, p2):
     normalize the coordinates, and call compute_h on the normalized coordinates
     normalize x and y coordinates between [0, 1] by dividing by X, and Y respectively.
     """
-
+    print(is_porto)
+    if is_porto:
+        X = porto_X
+        Y = porto_Y
+    else:
+        X = rect_X
+        Y = rect_Y
+   
     norm_mat = np.array([[1/X, 0, 0], [0, 1/Y, 0], [0, 0, 1]])
     p1_norm = np.zeros(p1.shape)
     p2_norm = np.zeros(p2.shape)
     N = p1.shape[0]
-
+    print(f"[compute h] X: {X}, Y: {Y}")
     # multiply homogeneous coordinates with normalization matrix
     for i in range(N):
         p1_homo_coor = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
@@ -83,7 +94,7 @@ def compute_h_norm(p1, p2):
     norm_mat_inv = np.linalg.inv(norm_mat)
     H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
     
-    """
+    
     # homography accuracy testing code for correspondence points
     for i in range(p1.shape[0]):
         H_inv = np.linalg.inv(H)
@@ -91,7 +102,7 @@ def compute_h_norm(p1, p2):
         homo = np.matmul(H_inv, r)
         #print(homo)
         print(f"actual: {p2[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
-    """
+    
 
     return H
 
@@ -103,6 +114,13 @@ def interpolation(img, coordinate):
     interpolated by grabbing the nearest pixel
     returns 0 if out of range
     """
+    if is_porto:
+        X = porto_X
+        Y = porto_Y
+    else:
+        X = rect_X
+        Y = rect_Y
+    #print(f"[interpolation] X: {X}, Y: {Y}")
     image_coordinate = np.zeros(2)
     image_coordinate[0] = (Y-1) - (coordinate[1] / coordinate[2])
     image_coordinate[1] = coordinate[0] / coordinate[2]
@@ -122,6 +140,9 @@ def interpolation(img, coordinate):
 
 def warp_image(igs_in, igs_ref, H):
     # currently, H changes igs_in -> igs_ref
+    X = porto_X
+    Y = porto_Y
+
     merge_y = 2400
     add_y = (merge_y - Y) // 2
     merge_x = 3400
@@ -174,19 +195,33 @@ def warp_image(igs_in, igs_ref, H):
 
 
 def rectify(igs, p1, p2):
-    # TODO ...
-    igs_rec = 0
 
+    H = compute_h_norm(p2, p1)
+    H_inv = np.linalg.inv(H)
+    igs_rec = np.zeros(igs.shape)
+
+    in_channels = [igs[:,:,0], igs[:,:,1], igs[:,:,2]]
+
+    igs_Y = igs.shape[0]
+    igs_X = igs.shape[1]
+    for j in range(igs_X):
+        for i in range(igs_Y):
+            ref_coordinate = np.array([j, (igs_Y-1)-i, 1])  
+            in_coordinate = np.matmul(H_inv, ref_coordinate)    
+            igs_rec[i][j][0] = interpolation(in_channels[0], in_coordinate)
+            igs_rec[i][j][1] = interpolation(in_channels[1], in_coordinate)
+            igs_rec[i][j][2] = interpolation(in_channels[2], in_coordinate)
+    
+    Image.fromarray(np.uint8(igs_rec)).show()
     return igs_rec
 
 
+
 def set_cor_mosaic():
-    # TODO ...
     """
     p_in and p_ref are N x 2 matrices (correspond to (x,y) coordinates)
-    criterion: selected 20 CORNER points from both images.
+    criterion: selected 8 corner points from both images.
     """
-    
 
     p_in = np.array([[1187, 1009],
                      [1282, 693],
@@ -214,19 +249,85 @@ def set_cor_mosaic():
     return p_in, p_ref
 
 
-def set_cor_rec():
-    # TODO ...
-    c_in = c_ref = 0
-    
 
+def set_cor_rec():
+    c_in = np.array([[1393, 887],
+                     [1349, 925],
+                     [1061, 858],
+                     [1100, 901],
+                     [1382, 217],
+                     [1344, 183],
+                     [1084, 195],
+                     [1056, 233]])
+
+    c_ref = np.array([[1393, 887],
+                     [1349, 925],
+                     [1061, 887],
+                     [1100, 925],
+                     [1393, 217],
+                     [1349, 183],
+                     [1100, 183],
+                     [1061, 217]])
+    """
+    c_in = np.array([[1158, 531],
+                     [1203, 531],
+                     [1206, 579],
+                     [1160, 575],
+                     [1231, 533],
+                     [1278, 535],
+                     [1278, 581],
+                     [1232, 579]])
+
+    c_ref = np.array([[1158, 531],
+                     [1208, 531],
+                     [1208, 581],
+                     [1158, 581],
+                     [1233, 531],
+                     [1283, 531],
+                     [1283, 581],
+                     [1233, 581]])
+    
+    c_in = np.array([[1314, 721],
+                     [1350, 722],
+                     [1315, 753],
+                     [7350, 755],
+                     [1091, 542],
+                     [1126, 543],
+                     [1126, 565],
+                     [1092, 563]])
+                     
+                     ,
+                     [1231, 533],
+                     [1278, 535],
+                     [1278, 581],
+                     [1232, 579]])
+    
+    c_ref = np.array([[1314, 721],
+                     [1349, 721],
+                     [1314, 751],
+                     [1349, 751],
+                     [1091, 542],
+                     [1126, 542],
+                     [1126, 562],
+                     [1091, 562]])
+                     
+                     ,
+                     [1233, 531],
+                     [1283, 531],
+                     [1283, 581],
+                     [1233, 581]])
+    """
+    c_in = c_in - 1
+    c_ref = c_ref - 1
     return c_in, c_ref
+
 
 
 def main():
     ##############
     # step 1: mosaicing
     ##############
-
+    """
     # read images
     img_in = Image.open('data/porto1.png').convert('RGB')
     img_ref = Image.open('data/porto2.png').convert('RGB')
@@ -251,14 +352,16 @@ def main():
     # save images
     img_warp.save('porto1_warped.png')
     img_merge.save('porto_mergeed.png')
-
+    """
     ##############
     # step 2: rectification
     ##############
+    global is_porto 
+    is_porto = False
 
     img_rec = Image.open('data/iphone.png').convert('RGB')
     igs_rec = np.array(img_rec)
-
+    
     c_in, c_ref = set_cor_rec()
 
     igs_rec = rectify(igs_rec, c_in, c_ref)
