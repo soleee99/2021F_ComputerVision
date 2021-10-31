@@ -23,8 +23,6 @@ def compute_h(p1, p2):
     # p2 -> p1 transformation
     # p1 = H p2
     
-
-    
     N = p1.shape[0]
     A = np.zeros((2*N, 9))
     for i in range(N):
@@ -32,7 +30,7 @@ def compute_h(p1, p2):
         p1_y = p1[i][1]
         p2_x = p2[i][0]
         p2_y = p2[i][1]
-
+        
         A[2*i][0] = p2_x
         A[2*i][1] = p2_y
         A[2*i][2] = 1
@@ -49,13 +47,26 @@ def compute_h(p1, p2):
     #print(A)
     # U (2N x 2N), s (N), V (N x N)
     # s is in descending order (largest -> smallest)
+    #print(A)
+    
     
     U, s, V = np.linalg.svd(A, full_matrices = True)
+    #print(np.allclose(A, np.matmul(np.matmul(U, np.diag(s)), V)))
+    #V = V.T
     #print(s[-1])
-    H = V[:,np.argmin(s)].reshape(3,3)
+    H = V.T[:,np.argmin(s)].reshape(3,3)
     #print(V)
+    #print(H)
+    #tmp = np.matmul(A.T, A)
+    #print(np.matmul(tmp, V[:,np.argmin(s)]))
+    #print(np.min(s) * V[:,np.argmin(s)])
+    
+    """
+    A = np.matmul(A.T, A)
+    e_val, e_vec = np.linalg.eig(A)
+    H = np.reshape(e_vec[:, np.argmin(e_val)], (3,3))
     print(H)
-
+    """
     return H
     
 
@@ -83,7 +94,7 @@ def compute_h_norm(p1, p2):
         p2_norm[i] = np.squeeze(np.matmul(norm_mat, p2_homo_coor), axis=-1)[:2]
     """
 
-    #H = compute_h(p1, p2)
+    H = compute_h(p1, p2)
     #magnitude = np.sqrt(np.sum(H**2))
     #print(H)
     # normalize the h so that magnitude is 1
@@ -95,10 +106,13 @@ def compute_h_norm(p1, p2):
     H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
     print(H)
     """
-    r = np.expand_dims(np.concatenate((p2[0], np.array([1])), axis=-1), axis=-1)
-    #print(f"r: {r}")
-
-    #print(np.matmul(H, r))
+    """
+    for i in range(p1.shape[0]):
+        r = np.expand_dims(np.concatenate((p2[i], np.array([1])), axis=-1), axis=-1)
+        homo = np.matmul(H, r)
+        print(homo)
+        print(f"actual: {p1[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
+    """
     return H
 
 
@@ -122,12 +136,13 @@ def set_cor_mosaic():
     criterion: selected 20 CORNER points from both images.
     """
     
-    p_in = np.array([[1188, 1012],
-                     [1227, 1017],
-                     [1261, 944],
+    """
+    p_in = np.array([[1189, 1009],
+                     [1221, 1016],
+                     [1260, 943],
                      [1288, 949],
-                     [1284, 785],
-                     [1442, 793],
+                     [1284, 784],
+                     [1445, 794],
                      [1286, 694],
                      [1146, 697],
                      [1241, 659],
@@ -142,13 +157,14 @@ def set_cor_mosaic():
                      [1334, 288],
                      [1287, 255],
                      [1254, 244]])
+    
 
-    p_ref = np.array([[448, 1006],
-                      [480, 1008],
+    p_ref = np.array([[447, 1008],
+                      [480, 1010],
                       [513, 930],
-                      [540, 936],
-                      [536, 775],
-                      [675, 774],
+                      [542, 934],
+                      [536, 776],
+                      [678, 778],
                       [540, 689],
                       [679, 688],
                       [493, 655],
@@ -164,6 +180,43 @@ def set_cor_mosaic():
                       [538, 271],
                       [510, 252]])
     
+    
+    p_in = np.array([[1189, 1010],
+                     [1283, 784],
+                     [1445, 795],
+                     [1286, 691],
+                     [1447, 696]])
+                     #,
+                     #[1240, 658],
+                     #[1463, 618],
+                     #[1255, 242]])
+    
+    p_ref = np.array([[447, 1008],
+                     [538, 778],
+                     [678, 777],
+                     [539, 588],
+                     [681, 687]])
+                     #,
+                     #[498, 656],
+                     #[693, 619],
+                     #[511, 253]])
+    """
+
+    p_in = np.array([[1187, 1011],
+                     [1284, 691],
+                     [1447, 694],
+                     [1255, 241],
+                     [1117, 439],
+                     [1462, 620]])
+
+    p_ref = np.array([[447, 1007],
+                     [538, 696],
+                     [682, 686],
+                     [510, 252],
+                     [375, 435],
+                     [694, 620]])
+
+
     # for actual coordinate (start from 0)
     p_in = p_in - 1
     p_ref = p_ref - 1
