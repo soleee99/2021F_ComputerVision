@@ -106,14 +106,14 @@ def compute_h_norm(p1, p2):
     H = np.matmul(np.matmul(norm_mat_inv, H), norm_mat)
     print(H)
     """
-    """
+    
     for i in range(p1.shape[0]):
         H_inv = np.linalg.inv(H)
         r = np.expand_dims(np.concatenate((p1[i], np.array([1])), axis=-1), axis=-1)
         homo = np.matmul(H_inv, r)
         #print(homo)
         print(f"actual: {p2[i]}, recovered: ({homo[0] / homo[2]}, {homo[1] / homo[2]}")
-    """
+    
     return H
 
 
@@ -143,13 +143,22 @@ def interpolation(img, coordinate):
 def warp_image(igs_in, igs_ref, H):
     # TODO ... 
     # currently, H changes igs_in -> igs_ref
+    merge_y = 3000
+    add_y = (merge_y - Y) // 2
+    merge_x = 4000
+    add_x = merge_x - X
+
+    igs_merge = np.zeros((merge_y, merge_x, 3))
+    igs_merge[add_y:add_y+Y, -1*X:, :] = igs_ref
+
+    #Image.fromarray(np.uint8(igs_merge)).show()
+
     H_inv = np.linalg.inv(H)
     igs_warp = np.zeros(igs_ref.shape)
     #Image.fromarray(np.uint8(igs_warp)).show()
     in_channels = [igs_in[:,:,0], igs_in[:,:,1], igs_in[:,:,2]]
     ref_channels = [igs_ref[:,:,0], igs_ref[:,:,1], igs_ref[:,:,2]]
-
-    
+    """
     for j in range(X):
         for i in range(Y):
             ref_coordinate = np.array([j, (Y-1)-i, 1])  # (x, y, _)
@@ -160,8 +169,23 @@ def warp_image(igs_in, igs_ref, H):
             
 
     Image.fromarray(np.uint8(igs_warp)).show()
+    """
+    for j in range(merge_x):
+        for i in range(merge_y):
+            if (j >= add_x) and (add_y <= i and i < add_y+Y):
+                continue
+            x_coor = j - add_x
+            y_coor = (merge_y-1)-i - add_y
+            ref_coordinate = np.array([x_coor, y_coor, 1])
+            in_coordinate = np.matmul(H_inv, ref_coordinate) 
+            igs_merge[i][j][0] = interpolation(in_channels[0], in_coordinate)
+            igs_merge[i][j][1] = interpolation(in_channels[1], in_coordinate)
+            igs_merge[i][j][2] = interpolation(in_channels[2], in_coordinate)
+    
+    Image.fromarray(np.uint8(igs_merge)).show()
+    
+    return igs_warp, igs_merge
 
-    return igs_warp#, igs_merge
 
 def rectify(igs, p1, p2):
     # TODO ...
@@ -243,19 +267,23 @@ def set_cor_mosaic():
                      #[511, 253]])
     """
 
-    p_in = np.array([[1187, 1011],
-                     [1284, 691],
+    p_in = np.array([[1187, 1009],
+                     [1282, 693],
                      [1447, 694],
                      [1255, 241],
-                     [1117, 439],
-                     [1462, 620]])
+                     [1117, 438],
+                     [801, 512],
+                     [935, 805]])
+                     #[1462, 619]])
 
     p_ref = np.array([[447, 1007],
                      [538, 696],
                      [682, 686],
                      [510, 252],
                      [375, 435],
-                     [694, 620]])
+                     [2, 499],
+                     [170, 824]])
+                     #[694, 620]])
 
 
     # for actual coordinate (start from 0)
