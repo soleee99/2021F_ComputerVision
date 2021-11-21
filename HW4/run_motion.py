@@ -4,15 +4,13 @@ import cv2
 from scipy.interpolate import RectBivariateSpline
 from skimage.filters import apply_hysteresis_threshold
 
+# apply_hysteresis_threshold is double thresholding
+
 from PIL import Image   # TODO: delete this
 
-def lucas_kanade_affine(img1, img2, p, Gx, Gy):
-    ### START CODE HERE ###
-    # [Caution] From now on, you can only use numpy and 
-    # RectBivariateSpline. Never use OpenCV.
-    # Gx, Gy are 2d array
+def get_error(img1, img2, p):
+    # returns T(x) - I(W(x;p)) given two images and p
 
-    
     warped_coor_x = np.zeros(img1.shape)
     warped_coor_y = np.zeros(img1.shape)
 
@@ -23,7 +21,7 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     interpolated_img2 = RectBivariateSpline(np.linspace(0, img2_y-1, img2_y), 
                                             np.linspace(0, img2_x-1, img2_x), 
                                             img2)
-
+    
     M = np.array([[p[0]+1, p[2], p[4]],
                   [p[1], p[3]+1, p[5]]])
 
@@ -36,10 +34,22 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     
     # I(W(x;p))
     warped_image = interpolated_img2.ev(warped_coor_y, warped_coor_x)
-    #Image.fromarray(np.uint8(warped_image)).show()
+    #Image.fromarray(np.uint8(warped_image)).show() TODO: 
     # T(x) - I(W(x;p)), T(x) = I(t) = img1 here
     diff = img1 - warped_image
-    #Image.fromarray(np.uint8(diff)).show()
+
+    return diff
+
+
+def lucas_kanade_affine(img1, img2, p, Gx, Gy):
+    ### START CODE HERE ###
+    # [Caution] From now on, you can only use numpy and 
+    # RectBivariateSpline. Never use OpenCV.
+    # Gx, Gy are 2d array
+    img1_y, img1_x = img1.shape
+
+    diff = get_error(img1, img2, p)
+    #Image.fromarray(np.uint8(diff)).show() TODO:
     diff = diff.reshape(-1, 1)  # (N, 1)
 
     Gmax = max(np.max(Gx), np.max(Gy))  
@@ -52,7 +62,6 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
             grad = np.array([[Gx[y][x], Gy[y][x]]]) / Gmax
             index = y*img1_x + x
             grad_jacobian[index] = np.squeeze(np.matmul(grad, jacobian), axis=0)
-    
     grad_jacobian = grad_jacobian * Gmax
 
     H = np.matmul(grad_jacobian.T, grad_jacobian)   # (6, 6)
@@ -60,36 +69,38 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     tmp = np.matmul(np.linalg.inv(H), grad_jacobian.T)
     dp = np.squeeze(np.matmul(tmp, diff), axis=-1)
 
-
     ### END CODE HERE ###
     return dp
+
 
 def subtract_dominant_motion(img1, img2):
     Gx = cv2.Sobel(I, cv2.CV_64F, 1, 0, ksize = 5) # do not modify this
     Gy = cv2.Sobel(I, cv2.CV_64F, 0, 1, ksize = 5) # do not modify this
-    print(f"GX size: {Gx.shape}")
+
     ### START CODE HERE ###
     # [Caution] From now on, you can only use numpy and 
     # RectBivariateSpline. Never use OpenCV.
 
-   
     # initialize p
-    dp = np.array([1, 0, 0, 0, 1, 0])
     p = np.zeros(6)    
 
-    dp = lucas_kanade_affine(img1, img2, p, Gx, Gy)
-    p += dp
+    for _ in range(1): # TODO: tune this
+        dp = lucas_kanade_affine(img1, img2, p, Gx, Gy)
+        p += dp
 
+    diff = get_error(img1, img2, p)
+    #Image.fromarray(np.uint8(diff)).show()
+    th_hi = 80 # you can modify this
+    th_lo = 50 # you can modify this
 
-    moving_image = np.abs(img2 - img1) # you should delete this
-    
-    th_hi = 0.2 * 256 # you can modify this
-    th_lo = 0.15 * 256 # you can modify this
+    moving_image = np.abs(diff)
+    #moving_image = np.where(diff > 0, diff, 0)
+    #moving_image = np.where(diff < 0, -1*diff, 0)
+    #Image.fromarray(np.uint8(moving_image)).show()
 
-    
     ### END CODE HERE ###
-
     hyst = apply_hysteresis_threshold(moving_image, th_lo, th_hi)
+    #Image.fromarray(np.uint8(np.where(hyst, 255, 0))).show()
     return hyst
 
 if __name__ == "__main__":
@@ -99,7 +110,8 @@ if __name__ == "__main__":
     out = cv2.VideoWriter(video_path, fourcc, 150/20, (636, 318))
     tmp_path = os.path.join(data_dir, "organized-{}.jpg".format(0))
     T = cv2.cvtColor(cv2.imread(tmp_path), cv2.COLOR_BGR2GRAY)
-    for i in range(0, 50):
+    for i in range(0, 50):  # TODO: change to 0
+        print(f"for image {i}")
         img_path = os.path.join(data_dir, "organized-{}.jpg".format(i))
         I = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
         clone = I.copy()
