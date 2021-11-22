@@ -102,7 +102,6 @@ if __name__ == "__main__":
     tmp_path = os.path.join(data_dir, "organized-{}.jpg".format(0))
     T = cv2.cvtColor(cv2.imread(tmp_path), cv2.COLOR_BGR2GRAY)
     for i in range(0, 50):  
-        print(f"for image {i}")
         img_path = os.path.join(data_dir, "organized-{}.jpg".format(i))
         I = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
         clone = I.copy()
