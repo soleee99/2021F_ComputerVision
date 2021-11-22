@@ -84,14 +84,14 @@ def subtract_dominant_motion(img1, img2):
     # initialize p
     p = np.zeros(6)    
 
-    for _ in range(1): # TODO: tune this
+    for _ in range(3): # TODO: tune this
         dp = lucas_kanade_affine(img1, img2, p, Gx, Gy)
-        p += dp
+        p += dp 
 
     diff = get_error(img1, img2, p)
     #Image.fromarray(np.uint8(diff)).show()
-    th_hi = 80 # you can modify this
-    th_lo = 50 # you can modify this
+    th_hi = 70 # you can modify this
+    th_lo = 40 # you can modify this
 
     moving_image = np.abs(diff)
     #moving_image = np.where(diff > 0, diff, 0)
