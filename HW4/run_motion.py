@@ -4,10 +4,6 @@ import cv2
 from scipy.interpolate import RectBivariateSpline
 from skimage.filters import apply_hysteresis_threshold
 
-# apply_hysteresis_threshold is double thresholding
-
-from PIL import Image   # TODO: delete this
-
 def get_error(img1, img2, p):
     # returns T(x) - I(W(x;p)) given two images and p
 
@@ -34,7 +30,7 @@ def get_error(img1, img2, p):
     
     # I(W(x;p))
     warped_image = interpolated_img2.ev(warped_coor_y, warped_coor_x)
-    #Image.fromarray(np.uint8(warped_image)).show() TODO: 
+
     # T(x) - I(W(x;p)), T(x) = I(t) = img1 here
     diff = img1 - warped_image
 
@@ -49,7 +45,6 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     img1_y, img1_x = img1.shape
 
     diff = get_error(img1, img2, p)
-    #Image.fromarray(np.uint8(diff)).show() TODO:
     diff = diff.reshape(-1, 1)  # (N, 1)
 
     Gmax = max(np.max(Gx), np.max(Gy))  
@@ -84,24 +79,20 @@ def subtract_dominant_motion(img1, img2):
     # initialize p
     p = np.zeros(6)    
 
-    for _ in range(3): # TODO: tune this
+    for _ in range(3): 
         dp = lucas_kanade_affine(img1, img2, p, Gx, Gy)
         p += dp 
 
     diff = get_error(img1, img2, p)
-    #Image.fromarray(np.uint8(diff)).show()
-    th_hi = 70 # you can modify this
-    th_lo = 40 # you can modify this
+    th_hi = 100 # you can modify this
+    th_lo = 20 # you can modify this
 
     moving_image = np.abs(diff)
-    #moving_image = np.where(diff > 0, diff, 0)
-    #moving_image = np.where(diff < 0, -1*diff, 0)
-    #Image.fromarray(np.uint8(moving_image)).show()
 
     ### END CODE HERE ###
     hyst = apply_hysteresis_threshold(moving_image, th_lo, th_hi)
-    #Image.fromarray(np.uint8(np.where(hyst, 255, 0))).show()
     return hyst
+
 
 if __name__ == "__main__":
     data_dir = 'data'
@@ -110,7 +101,7 @@ if __name__ == "__main__":
     out = cv2.VideoWriter(video_path, fourcc, 150/20, (636, 318))
     tmp_path = os.path.join(data_dir, "organized-{}.jpg".format(0))
     T = cv2.cvtColor(cv2.imread(tmp_path), cv2.COLOR_BGR2GRAY)
-    for i in range(0, 50):  # TODO: change to 0
+    for i in range(0, 50):  
         print(f"for image {i}")
         img_path = os.path.join(data_dir, "organized-{}.jpg".format(i))
         I = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
