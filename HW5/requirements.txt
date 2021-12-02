@@ -1,0 +1,8 @@
+gdown==4.2.0
+tqdm==4.46.1
+opencv-python==4.5.4.60
+opencv-contrib-python==4.5.4.60
+numpy==1.18.4
+matplotlib==3.2.1
+torch==1.10.0
+jupyterlab==3.2.4
